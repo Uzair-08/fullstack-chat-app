@@ -1,13 +1,16 @@
 // ===================================================================================
 // FILE: client/src/components/ChatPage.js (FINAL VERSION - LOGOUT FIX)
 // ===================================================================================
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import CreateChannelForm from './CreateChannelForm';
 
-const socket = io('http://localhost:5000');
+const socket = io(API_URL);
 
 // --- HELPER COMPONENTS ---
 const ChannelList = ({ channels, currentChannel, currentUser, onChannelSelect, onDeleteChannel }) => (
@@ -73,7 +76,7 @@ const MessageInput = ({ onSendMessage, username, currentChannel }) => {
         formData.append('image', file);
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.post('http://localhost:5000/api/upload', formData, {
+            const res = await axios.post(`${API_URL}/api/upload`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
             });
             socket.emit('chatMessage', { channel: currentChannel, user: username, imageUrl: res.data.imageUrl });
@@ -133,7 +136,7 @@ function ChatPage({ onLogout }) {
 
         const fetchInitialData = async () => {
             try {
-                const res = await axios.get('http://localhost:5000/api/channels', { headers: { Authorization: `Bearer ${token}` } });
+                const res = await axios.get(`${API_URL}/api/channels`, { headers: { Authorization: `Bearer ${token}` } });
                 const fetchedChannels = res.data;
                 setChannels(fetchedChannels);
                 
@@ -199,7 +202,7 @@ function ChatPage({ onLogout }) {
         const fetchMessages = async () => {
             if (currentChannel.id) {
                 const token = localStorage.getItem('token');
-                const res = await axios.get(`http://localhost:5000/api/channels/${currentChannel.id}/messages`, { headers: { Authorization: `Bearer ${token}` } });
+                const res = await axios.get(`${API_URL}/api/channels/${currentChannel.id}/messages`, { headers: { Authorization: `Bearer ${token}` } });
                 setMessages(res.data);
             } else {
                 setMessages([]);
@@ -220,7 +223,7 @@ function ChatPage({ onLogout }) {
     const handleEditSubmit = async (messageId, newContent) => {
         try {
             const token = localStorage.getItem('token');
-            await axios.put(`http://localhost:5000/api/messages/${messageId}`, { content: newContent }, { headers: { Authorization: `Bearer ${token}` } });
+            await axios.put(`${API_URL}/api/messages/${messageId}`, { content: newContent }, { headers: { Authorization: `Bearer ${token}` } });
             setEditingMessage(null);
         } catch (error) { console.error("Failed to edit message", error); }
     };
@@ -229,7 +232,7 @@ function ChatPage({ onLogout }) {
         if (window.confirm("Are you sure you want to delete this channel?")) {
             try {
                 const token = localStorage.getItem('token');
-                await axios.delete(`http://localhost:5000/api/channels/${channelId}`, { headers: { Authorization: `Bearer ${token}` } });
+                await axios.delete(`${API_URL}/api/channels/${channelId}`, { headers: { Authorization: `Bearer ${token}` } });
             } catch (error) { console.error("Failed to delete channel", error); }
         }
     };

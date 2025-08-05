@@ -13,7 +13,7 @@ function CreateChannelForm({ onChannelCreated }) {
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        'http://localhost:5000/api/channels',
+        `${API_URL}/api/channels`,
         { name: channelName },
         { headers: { Authorization: `Bearer ${token}` } }
       );

@@ -18,12 +18,29 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 
-const sequelize = new Sequelize('chatapp', 'postgres', 'MangoTree@08', {
-  host: 'localhost',
-  dialect: 'postgres',
-  port: 5555,
-  logging: false
-});
+// --- DATABASE CONNECTION ---
+let sequelize;
+if (process.env.DATABASE_URL) {
+  // This is the configuration for the deployed Render database
+  sequelize = new Sequelize(process.env.DATABASE_URL, {
+    dialect: 'postgres',
+    protocol: 'postgres',
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false // Required for Render connections
+      }
+    }
+  });
+} else {
+  // This is the configuration for your local database
+  sequelize = new Sequelize('chatapp', 'postgres', 'YOUR_DATABASE_PASSWORD', {
+    host: 'localhost',
+    dialect: 'postgres',
+    port: 5555,
+    logging: false
+  });
+}
 
 // --- CLOUDINARY CONFIG ---
 cloudinary.config({ 

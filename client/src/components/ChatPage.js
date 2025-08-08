@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
@@ -5,7 +6,6 @@ import { jwtDecode } from 'jwt-decode';
 import CreateChannelForm from './CreateChannelForm';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-const socket = io(API_URL);
 
 // --- HELPER COMPONENTS ---
 const ChannelList = ({ channels, currentChannel, currentUser, onChannelSelect, onDeleteChannel }) => (
@@ -59,7 +59,7 @@ const MessageList = ({ messages, currentUser, onEditMessage, typingUsers }) => {
     );
 };
 
-const MessageInput = ({ onSendMessage, username, currentChannel }) => {
+const MessageInput = ({ socket, onSendMessage, username, currentChannel }) => {
     const [text, setText] = useState('');
     const fileInputRef = useRef(null);
     const typingTimeoutRef = useRef(null);
@@ -81,6 +81,7 @@ const MessageInput = ({ onSendMessage, username, currentChannel }) => {
     };
 
     const handleTyping = () => {
+        if (!socket) return; // Guard against socket not being ready
         socket.emit('startTyping', { channel: currentChannel, user: username });
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         typingTimeoutRef.current = setTimeout(() => {
@@ -92,7 +93,9 @@ const MessageInput = ({ onSendMessage, username, currentChannel }) => {
         e.preventDefault();
         if (text.trim()) {
             onSendMessage(text);
-            socket.emit('stopTyping', { channel: currentChannel, user: username });
+            if (socket) {
+                socket.emit('stopTyping', { channel: currentChannel, user: username });
+            }
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
             setText('');
         }
@@ -118,12 +121,17 @@ function ChatPage({ onLogout }) {
     const [currentUser, setCurrentUser] = useState({ id: null, username: '' });
     const [editingMessage, setEditingMessage] = useState(null);
     
+    const socketRef = useRef(null);
     const currentChannelRef = useRef(currentChannel);
     useEffect(() => {
         currentChannelRef.current = currentChannel;
     }, [currentChannel]);
 
+    // This effect runs only ONCE to set up listeners and fetch initial channel list
     useEffect(() => {
+        socketRef.current = io(API_URL);
+        const socket = socketRef.current;
+
         const token = localStorage.getItem('token');
         if (!token) { onLogout(); return; }
         const decodedUser = jwtDecode(token);
@@ -143,7 +151,9 @@ function ChatPage({ onLogout }) {
         };
         fetchInitialData();
 
+        // --- Set up all socket listeners ONCE ---
         const handleChatMessage = (msg) => {
+            // Use the ref to check against the most up-to-date channel
             if (msg.channel === currentChannelRef.current.name) {
                 setMessages(prev => [...prev, msg]);
             }
@@ -182,17 +192,13 @@ function ChatPage({ onLogout }) {
         socket.on('newChannel', handleNewChannel);
         socket.on('channelDeleted', handleChannelDeleted);
 
+        // Cleanup function to remove listeners when component unmounts
         return () => {
-            socket.off('chatMessage', handleChatMessage);
-            socket.off('updateUserList');
-            socket.off('userTyping');
-            socket.off('userStoppedTyping');
-            socket.off('newChannel');
-            socket.off('channelDeleted');
-            socket.off('messageUpdated');
+            socket.disconnect();
         };
     }, [onLogout]);
 
+    // This effect runs ONLY when the currentChannel changes to fetch its messages
     useEffect(() => {
         const fetchMessages = async () => {
             if (currentChannel.id) {
@@ -207,12 +213,12 @@ function ChatPage({ onLogout }) {
     }, [currentChannel]);
 
     const handleChannelSelect = (channel) => {
-        socket.emit('joinChannel', { channelName: channel.name, username: currentUser.username });
+        socketRef.current.emit('joinChannel', { channelName: channel.name, username: currentUser.username });
         setCurrentChannel(channel);
     };
 
     const handleSendMessage = (text) => {
-        socket.emit('chatMessage', { channel: currentChannel.name, user: currentUser.username, text });
+        socketRef.current.emit('chatMessage', { channel: currentChannel.name, user: currentUser.username, text });
     };
 
     const handleEditSubmit = async (messageId, newContent) => {
@@ -232,9 +238,8 @@ function ChatPage({ onLogout }) {
         }
     };
 
-    // NEW: Updated handleLogout function
     const handleLogout = () => {
-        socket.emit('logout'); // Tell the server we are logging out
+        socketRef.current.emit('logout');
         localStorage.removeItem('token');
         onLogout();
     };
@@ -244,7 +249,7 @@ function ChatPage({ onLogout }) {
             <div className="sidebar">
                 <div className="sidebar-header">
                     <h3>Channels</h3>
-                     <button onClick={handleLogout} className="logout-button">🚪</button>
+                    <button onClick={handleLogout} className="logout-button">🚪</button>
                 </div>
                 <ChannelList channels={channels} currentChannel={currentChannel} currentUser={currentUser} onChannelSelect={handleChannelSelect} onDeleteChannel={handleDeleteChannel} />
                 <CreateChannelForm onChannelCreated={() => {}} />
@@ -266,7 +271,12 @@ function ChatPage({ onLogout }) {
                     <MessageList messages={messages} currentUser={currentUser} onEditMessage={setEditingMessage} typingUsers={typingUsers} />
                 )}
                 <div className="chat-footer">
-                    <MessageInput onSendMessage={handleSendMessage} username={currentUser.username} currentChannel={currentChannel.name} />
+                    <MessageInput 
+                        socket={socketRef.current} 
+                        onSendMessage={handleSendMessage} 
+                        username={currentUser.username} 
+                        currentChannel={currentChannel.name} 
+                    />
                 </div>
             </div>
         </div>

@@ -1,5 +1,5 @@
 // ===================================================================================
-// FILE: server/index.js (FINAL VERSION - LOGOUT FIX)
+// FILE: server/index.js (Revised with Message Broadcast Fix)
 // ===================================================================================
 require('dotenv').config();
 const express = require('express');
@@ -214,7 +214,6 @@ io.on('connection', (socket) => {
     socket.on('startTyping', (data) => socket.to(data.channel).emit('userTyping', data.user));
     socket.on('stopTyping', (data) => socket.to(data.channel).emit('userStoppedTyping', data.user));
 
-    // NEW: Handle explicit logout event from client
     socket.on('logout', () => {
         handleUserLeave();
     });
@@ -234,7 +233,8 @@ io.on('connection', (socket) => {
                     UserId: user.id, 
                     ChannelId: channel.id 
                 });
-                const messageToSend = { ...newMessage.toJSON(), User: user };
+                // ✅ This is the corrected line that fixes the issue
+                const messageToSend = { ...newMessage.toJSON(), User: user, channel: msg.channel };
                 io.to(msg.channel).emit('chatMessage', messageToSend);
             }
         } catch (error) { console.error('Error saving message:', error); }

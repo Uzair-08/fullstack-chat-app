@@ -1,15 +1,10 @@
-// ===================================================================================
-// FILE: client/src/components/ChatPage.js (FINAL VERSION - LOGOUT FIX)
-// ===================================================================================
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import CreateChannelForm from './CreateChannelForm';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const socket = io(API_URL);
 
 // --- HELPER COMPONENTS ---

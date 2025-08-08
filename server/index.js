@@ -34,7 +34,7 @@ if (process.env.DATABASE_URL) {
   });
 } else {
   // This is the configuration for your local database
-  sequelize = new Sequelize('chatapp', 'postgres', 'YOUR_DATABASE_PASSWORD', {
+  sequelize = new Sequelize('chatapp', 'postgres', 'MangoTree@08', {
     host: 'localhost',
     dialect: 'postgres',
     port: 5555,
